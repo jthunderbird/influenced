@@ -41,8 +41,10 @@ class YouTubeService {
       });
 
       if (searchResponse.data.items && searchResponse.data.items.length > 0) {
-        // Return the first result's channel ID
-        return searchResponse.data.items[0].snippet.channelId;
+        // Return the first result's channel ID (it's in id.channelId for search results)
+        const foundChannelId = searchResponse.data.items[0].id.channelId;
+        console.log(`Found channel ID via search: ${foundChannelId}`);
+        return foundChannelId;
       }
 
       throw new Error('Channel not found');
