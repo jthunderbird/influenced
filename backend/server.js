@@ -48,13 +48,13 @@ async function initializeChannel() {
   }
 }
 
-// Routes
+// Routes - pass a function to get channelId dynamically
 app.use('/api', async (req, res, next) => {
   if (!channelId) {
     return res.status(503).json({ error: 'Service initializing, please wait...' });
   }
   next();
-}, youtubeRoutes(youtubeService, channelId));
+}, youtubeRoutes(youtubeService, () => channelId));
 
 // Serve static files from React build (in production)
 const buildPath = path.join(__dirname, 'frontend/dist');

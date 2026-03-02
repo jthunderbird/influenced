@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 
-module.exports = (youtubeService, channelId) => {
+module.exports = (youtubeService, getChannelId) => {
   // Get channel information
   router.get('/channel', async (req, res) => {
     try {
-      const channelInfo = await youtubeService.getChannelInfo(channelId);
+      const channelInfo = await youtubeService.getChannelInfo(getChannelId());
       res.json(channelInfo);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -16,7 +16,7 @@ module.exports = (youtubeService, channelId) => {
   router.get('/videos', async (req, res) => {
     try {
       const { maxResults = 50, pageToken } = req.query;
-      const videos = await youtubeService.getVideos(channelId, maxResults, pageToken);
+      const videos = await youtubeService.getVideos(getChannelId(), maxResults, pageToken);
       res.json(videos);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -27,7 +27,7 @@ module.exports = (youtubeService, channelId) => {
   router.get('/shorts', async (req, res) => {
     try {
       const { maxResults = 50, pageToken } = req.query;
-      const shorts = await youtubeService.getShorts(channelId, maxResults, pageToken);
+      const shorts = await youtubeService.getShorts(getChannelId(), maxResults, pageToken);
       res.json(shorts);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -38,7 +38,7 @@ module.exports = (youtubeService, channelId) => {
   router.get('/live', async (req, res) => {
     try {
       const { maxResults = 50, pageToken } = req.query;
-      const liveStreams = await youtubeService.getLiveStreams(channelId, maxResults, pageToken);
+      const liveStreams = await youtubeService.getLiveStreams(getChannelId(), maxResults, pageToken);
       res.json(liveStreams);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -49,7 +49,7 @@ module.exports = (youtubeService, channelId) => {
   router.get('/posts', async (req, res) => {
     try {
       const { maxResults = 50, pageToken } = req.query;
-      const posts = await youtubeService.getPosts(channelId, maxResults, pageToken);
+      const posts = await youtubeService.getPosts(getChannelId(), maxResults, pageToken);
       res.json(posts);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -60,7 +60,7 @@ module.exports = (youtubeService, channelId) => {
   router.get('/playlists', async (req, res) => {
     try {
       const { maxResults = 50, pageToken } = req.query;
-      const playlists = await youtubeService.getPlaylists(channelId, maxResults, pageToken);
+      const playlists = await youtubeService.getPlaylists(getChannelId(), maxResults, pageToken);
       res.json(playlists);
     } catch (error) {
       res.status(500).json({ error: error.message });
