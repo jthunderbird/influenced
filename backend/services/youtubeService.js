@@ -12,22 +12,45 @@ class YouTubeService {
       // Remove @ symbol if present
       const cleanHandle = handle.startsWith('@') ? handle.substring(1) : handle;
 
-      const response = await axios.get(`${YOUTUBE_API_BASE}/search`, {
+      // Try forUsername first (works for legacy usernames)
+      try {
+        const response = await axios.get(`${YOUTUBE_API_BASE}/channels`, {
+          params: {
+            part: 'id',
+            forUsername: cleanHandle,
+            key: this.apiKey
+          }
+        });
+
+        if (response.data.items && response.data.items.length > 0) {
+          return response.data.items[0].id;
+        }
+      } catch (err) {
+        console.log('forUsername lookup failed, trying search...');
+      }
+
+      // Fall back to search if forUsername doesn't work
+      const searchResponse = await axios.get(`${YOUTUBE_API_BASE}/search`, {
         params: {
           part: 'snippet',
-          q: cleanHandle,
+          q: handle, // Use original handle with @ symbol
           type: 'channel',
-          maxResults: 1,
+          maxResults: 5,
           key: this.apiKey
         }
       });
 
-      if (response.data.items && response.data.items.length > 0) {
-        return response.data.items[0].snippet.channelId;
+      if (searchResponse.data.items && searchResponse.data.items.length > 0) {
+        // Return the first result's channel ID
+        return searchResponse.data.items[0].snippet.channelId;
       }
 
       throw new Error('Channel not found');
     } catch (error) {
+      if (error.response) {
+        console.error('YouTube API Error:', error.response.status, error.response.data);
+        throw new Error(`YouTube API Error: ${error.response.data.error?.message || error.message}`);
+      }
       console.error('Error getting channel ID:', error.message);
       throw error;
     }

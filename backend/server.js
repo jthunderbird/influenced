@@ -33,9 +33,15 @@ let channelId = null;
 // Initialize channel ID
 async function initializeChannel() {
   try {
-    console.log(`Fetching channel ID for handle: ${YOUTUBE_CHANNEL_HANDLE}`);
-    channelId = await youtubeService.getChannelIdFromHandle(YOUTUBE_CHANNEL_HANDLE);
-    console.log(`Channel ID found: ${channelId}`);
+    // Check if it's already a channel ID (starts with UC and is 24 chars)
+    if (YOUTUBE_CHANNEL_HANDLE.startsWith('UC') && YOUTUBE_CHANNEL_HANDLE.length === 24) {
+      console.log(`Using provided channel ID: ${YOUTUBE_CHANNEL_HANDLE}`);
+      channelId = YOUTUBE_CHANNEL_HANDLE;
+    } else {
+      console.log(`Fetching channel ID for handle: ${YOUTUBE_CHANNEL_HANDLE}`);
+      channelId = await youtubeService.getChannelIdFromHandle(YOUTUBE_CHANNEL_HANDLE);
+      console.log(`Channel ID found: ${channelId}`);
+    }
   } catch (error) {
     console.error('Error initializing channel:', error.message);
     process.exit(1);
@@ -51,7 +57,7 @@ app.use('/api', async (req, res, next) => {
 }, youtubeRoutes(youtubeService, channelId));
 
 // Serve static files from React build (in production)
-const buildPath = path.join(__dirname, '../frontend/dist');
+const buildPath = path.join(__dirname, 'frontend/dist');
 app.use(express.static(buildPath));
 
 // Serve React app for all other routes
