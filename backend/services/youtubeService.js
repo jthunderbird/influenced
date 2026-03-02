@@ -58,6 +58,7 @@ class YouTubeService {
 
   async getChannelInfo(channelId) {
     try {
+      console.log(`Fetching channel info for ID: ${channelId}`);
       const response = await axios.get(`${YOUTUBE_API_BASE}/channels`, {
         params: {
           part: 'snippet,statistics,brandingSettings',
@@ -83,6 +84,11 @@ class YouTubeService {
 
       throw new Error('Channel info not found');
     } catch (error) {
+      if (error.response) {
+        console.error('YouTube API Error (getChannelInfo):', error.response.status);
+        console.error('Error details:', JSON.stringify(error.response.data, null, 2));
+        throw new Error(`YouTube API Error: ${error.response.data.error?.message || error.message}`);
+      }
       console.error('Error getting channel info:', error.message);
       throw error;
     }
@@ -118,6 +124,10 @@ class YouTubeService {
         prevPageToken: response.data.prevPageToken
       };
     } catch (error) {
+      if (error.response) {
+        console.error('YouTube API Error (getVideos):', error.response.status);
+        console.error('Error details:', JSON.stringify(error.response.data, null, 2));
+      }
       console.error('Error getting videos:', error.message);
       throw error;
     }
