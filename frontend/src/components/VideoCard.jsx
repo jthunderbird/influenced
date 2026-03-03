@@ -35,6 +35,7 @@ function VideoCard({ video }) {
       </div>
       <div className="video-info">
         {video.isLive && <div className="live-badge">LIVE</div>}
+        {video.streamType === 'past' && <div className="past-live-badge">PAST LIVE</div>}
         <h3 className="video-title">{video.title}</h3>
         <p className="video-date">{formatDate(video.publishedAt)}</p>
       </div>

@@ -129,22 +129,35 @@ class YouTubeService {
         }
       });
 
-      // Create a map of video ID to duration
+      // Create a map of video ID to duration (both raw and formatted)
       const durationMap = {};
       detailsResponse.data.items.forEach(item => {
-        durationMap[item.id] = this.formatDuration(item.contentDetails.duration);
+        durationMap[item.id] = {
+          raw: item.contentDetails.duration,
+          formatted: this.formatDuration(item.contentDetails.duration)
+        };
       });
 
-      return {
-        items: response.data.items.map(item => ({
+      // Filter out shorts (videos under 60 seconds)
+      const videos = response.data.items
+        .filter(item => {
+          const durData = durationMap[item.id.videoId];
+          if (!durData) return true; // Include if we don't have duration data
+          const durationSeconds = this.parseDuration(durData.raw);
+          return durationSeconds > 60; // Only include videos LONGER than 60 seconds
+        })
+        .map(item => ({
           id: item.id.videoId,
           title: item.snippet.title,
           description: item.snippet.description,
           thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
           publishedAt: item.snippet.publishedAt,
           channelTitle: item.snippet.channelTitle,
-          duration: durationMap[item.id.videoId]
-        })),
+          duration: durationMap[item.id.videoId]?.formatted
+        }));
+
+      return {
+        items: videos,
         nextPageToken: response.data.nextPageToken,
         prevPageToken: response.data.prevPageToken
       };
@@ -240,35 +253,75 @@ class YouTubeService {
 
   async getLiveStreams(channelId, maxResults = 50, pageToken = null) {
     try {
-      const params = {
+      // Fetch both current live streams and completed broadcasts
+      const liveParams = {
         part: 'snippet',
         channelId: channelId,
         type: 'video',
         eventType: 'live',
-        maxResults: maxResults,
+        maxResults: 25,
+        key: this.apiKey
+      };
+
+      const completedParams = {
+        part: 'snippet',
+        channelId: channelId,
+        type: 'video',
+        eventType: 'completed',
+        order: 'date',
+        maxResults: Math.min(maxResults, 25),
         key: this.apiKey
       };
 
       if (pageToken) {
-        params.pageToken = pageToken;
+        completedParams.pageToken = pageToken;
       }
 
-      const response = await axios.get(`${YOUTUBE_API_BASE}/search`, { params });
+      // Fetch both in parallel
+      const [liveResponse, completedResponse] = await Promise.allSettled([
+        axios.get(`${YOUTUBE_API_BASE}/search`, { params: liveParams }),
+        axios.get(`${YOUTUBE_API_BASE}/search`, { params: completedParams })
+      ]);
+
+      const liveItems = liveResponse.status === 'fulfilled'
+        ? liveResponse.value.data.items.map(item => ({
+            id: item.id.videoId,
+            title: item.snippet.title,
+            description: item.snippet.description,
+            thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
+            publishedAt: item.snippet.publishedAt,
+            channelTitle: item.snippet.channelTitle,
+            isLive: true,
+            streamType: 'live'
+          }))
+        : [];
+
+      const completedItems = completedResponse.status === 'fulfilled'
+        ? completedResponse.value.data.items.map(item => ({
+            id: item.id.videoId,
+            title: item.snippet.title,
+            description: item.snippet.description,
+            thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
+            publishedAt: item.snippet.publishedAt,
+            channelTitle: item.snippet.channelTitle,
+            isLive: false,
+            streamType: 'past'
+          }))
+        : [];
+
+      // Combine: live streams first, then past broadcasts
+      const allStreams = [...liveItems, ...completedItems];
 
       return {
-        items: response.data.items.map(item => ({
-          id: item.id.videoId,
-          title: item.snippet.title,
-          description: item.snippet.description,
-          thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
-          publishedAt: item.snippet.publishedAt,
-          channelTitle: item.snippet.channelTitle,
-          isLive: true
-        })),
-        nextPageToken: response.data.nextPageToken,
-        prevPageToken: response.data.prevPageToken
+        items: allStreams,
+        nextPageToken: completedResponse.status === 'fulfilled' ? completedResponse.value.data.nextPageToken : null,
+        prevPageToken: completedResponse.status === 'fulfilled' ? completedResponse.value.data.prevPageToken : null
       };
     } catch (error) {
+      if (error.response) {
+        console.error('YouTube API Error (getLiveStreams):', error.response.status);
+        console.error('Error details:', JSON.stringify(error.response.data, null, 2));
+      }
       console.error('Error getting live streams:', error.message);
       throw error;
     }
@@ -289,10 +342,8 @@ class YouTubeService {
 
       const response = await axios.get(`${YOUTUBE_API_BASE}/activities`, { params });
 
-      // Filter for community posts
+      // Filter for ONLY community posts (social type), not uploads or videos
       const posts = response.data.items.filter(item =>
-        item.snippet.type === 'upload' ||
-        item.snippet.type === 'playlistItem' ||
         item.snippet.type === 'social'
       );
 
@@ -309,6 +360,10 @@ class YouTubeService {
         prevPageToken: response.data.prevPageToken
       };
     } catch (error) {
+      if (error.response) {
+        console.error('YouTube API Error (getPosts):', error.response.status);
+        console.error('Error details:', JSON.stringify(error.response.data, null, 2));
+      }
       console.error('Error getting posts:', error.message);
       throw error;
     }
