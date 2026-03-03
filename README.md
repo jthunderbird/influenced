@@ -75,11 +75,11 @@ Once the container is running, open your browser to `http://localhost:3000`
 
 ### Navigation
 
-- **Home**: Shows the 12 most recent videos from the channel
-- **Videos**: Browse all videos with pagination
-- **Shorts**: View short-form videos
-- **Live**: See current and upcoming live streams
-- **Posts**: View community posts (if available)
+- **Home**: Shows recent content from all categories
+- **Videos**: Browse all videos with pagination (excludes shorts)
+- **Shorts**: View short-form videos (60 seconds or less)
+- **Live**: See current live streams and past broadcasts
+- **Posts**: View community posts (usually unavailable due to API limitations)
 - **Playlists**: Browse channel playlists
 
 ### Changing Channels
@@ -150,6 +150,21 @@ The YouTube Data API has a daily quota limit of 10,000 units (free tier). Each A
 - Playlist items: ~1 unit
 
 Be mindful of frequent page refreshes and pagination to avoid hitting quota limits.
+
+## Known Limitations
+
+### Community Posts Not Available
+
+**The Posts tab will often show no content even when the channel has community posts on YouTube.** This is a limitation of YouTube's Data API v3, not a bug in this application.
+
+YouTube's official API does not reliably provide access to community posts through the `activities` endpoint. The API typically only returns:
+- `upload` - Video uploads
+- `playlistItem` - Playlist additions
+- `subscription` - Channel subscriptions
+
+The `social`, `bulletin`, and `channelItem` activity types that would represent community posts are rarely (if ever) returned by the API, even for channels with active community posts visible on YouTube's website.
+
+**Workaround:** There is no workaround using the official YouTube Data API. Third-party scraping solutions exist but violate YouTube's Terms of Service and are not implemented in this application.
 
 ## Troubleshooting
 

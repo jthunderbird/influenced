@@ -47,5 +47,10 @@ export const api = {
     const params = pageToken ? { pageToken } : {};
     const response = await axios.get(`${API_BASE}/playlist/${playlistId}`, { params });
     return response.data;
+  },
+
+  search: async (query) => {
+    const response = await axios.get(`${API_BASE}/search`, { params: { q: query } });
+    return response.data;
   }
 };

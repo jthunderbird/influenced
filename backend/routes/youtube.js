@@ -92,5 +92,19 @@ module.exports = (youtubeService, getChannelId) => {
     }
   });
 
+  // Search channel content
+  router.get('/search', async (req, res) => {
+    try {
+      const { q, maxResults = 20 } = req.query;
+      if (!q) {
+        return res.status(400).json({ error: 'Search query (q) is required' });
+      }
+      const searchResults = await youtubeService.searchChannel(getChannelId(), q, maxResults);
+      res.json(searchResults);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return router;
 };

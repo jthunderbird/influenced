@@ -356,28 +356,16 @@ class YouTubeService {
 
       const response = await axios.get(`${YOUTUBE_API_BASE}/activities`, { params });
 
-      console.log('Activities API response - total items:', response.data.items?.length);
-
-      // Log all activity types to debug what's available
-      const activityTypes = {};
-      response.data.items.forEach(item => {
-        const type = item.snippet.type;
-        activityTypes[type] = (activityTypes[type] || 0) + 1;
-      });
-      console.log('Activity types found:', activityTypes);
-
-      // Try to capture community posts - they might be under different types
-      // Common types: 'social', 'bulletin', 'channelItem', 'comment'
+      // NOTE: YouTube's Data API v3 often does not provide community posts
+      // even when they exist on the channel. This is a known API limitation.
+      // We filter for 'social', 'bulletin', and 'channelItem' types, but
+      // many channels will have 0 results even with active community posts.
       const posts = response.data.items.filter(item => {
         const type = item.snippet.type;
-        // Include various activity types that might represent community posts
         return type === 'social' ||
                type === 'bulletin' ||
-               type === 'channelItem' ||
-               (type === 'upload' && item.contentDetails?.upload?.videoId === undefined);
+               type === 'channelItem';
       });
-
-      console.log(`Filtered ${posts.length} posts from ${response.data.items.length} activities`);
 
       return {
         items: posts.map(item => ({
@@ -487,6 +475,152 @@ class YouTubeService {
       };
     } catch (error) {
       console.error('Error getting mixed recent content:', error.message);
+      throw error;
+    }
+  }
+
+  async searchChannel(channelId, query, maxResults = 20) {
+    try {
+      // Search for videos and shorts
+      const videoSearchParams = {
+        part: 'snippet',
+        channelId: channelId,
+        q: query,
+        type: 'video',
+        maxResults: maxResults,
+        key: this.apiKey
+      };
+
+      const videoSearchResponse = await axios.get(`${YOUTUBE_API_BASE}/search`, {
+        params: videoSearchParams
+      });
+
+      // Get video IDs to fetch durations and classify as videos/shorts
+      const videoIds = videoSearchResponse.data.items.map(item => item.id.videoId).join(',');
+
+      let videos = [];
+      let shorts = [];
+
+      if (videoIds) {
+        const detailsResponse = await axios.get(`${YOUTUBE_API_BASE}/videos`, {
+          params: {
+            part: 'contentDetails,player',
+            id: videoIds,
+            key: this.apiKey
+          }
+        });
+
+        const videoMetadataMap = {};
+        detailsResponse.data.items.forEach(item => {
+          const durationSeconds = this.parseDuration(item.contentDetails.duration);
+          const hasShortsDuration = durationSeconds <= 61;
+          const hasShortsUrl = item.player?.embedHtml && item.player.embedHtml.includes('/shorts/');
+          const isShort = hasShortsDuration || hasShortsUrl;
+
+          videoMetadataMap[item.id] = {
+            formatted: this.formatDuration(item.contentDetails.duration),
+            isShort: isShort
+          };
+        });
+
+        // Separate videos and shorts
+        videoSearchResponse.data.items.forEach(item => {
+          const metadata = videoMetadataMap[item.id.videoId];
+          if (!metadata) return;
+
+          const videoData = {
+            id: item.id.videoId,
+            title: item.snippet.title,
+            description: item.snippet.description,
+            thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
+            publishedAt: item.snippet.publishedAt,
+            channelTitle: item.snippet.channelTitle,
+            duration: metadata.formatted
+          };
+
+          if (metadata.isShort) {
+            shorts.push(videoData);
+          } else {
+            videos.push(videoData);
+          }
+        });
+      }
+
+      // Search for playlists
+      const playlistSearchParams = {
+        part: 'snippet',
+        channelId: channelId,
+        q: query,
+        type: 'playlist',
+        maxResults: 10,
+        key: this.apiKey
+      };
+
+      const playlistSearchResponse = await axios.get(`${YOUTUBE_API_BASE}/search`, {
+        params: playlistSearchParams
+      });
+
+      // Get playlist details for item counts
+      const playlistIds = playlistSearchResponse.data.items.map(item => item.id.playlistId).join(',');
+      let playlists = [];
+
+      if (playlistIds) {
+        const playlistDetailsResponse = await axios.get(`${YOUTUBE_API_BASE}/playlists`, {
+          params: {
+            part: 'snippet,contentDetails',
+            id: playlistIds,
+            key: this.apiKey
+          }
+        });
+
+        playlists = playlistDetailsResponse.data.items.map(item => ({
+          id: item.id,
+          title: item.snippet.title,
+          description: item.snippet.description,
+          thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
+          itemCount: item.contentDetails.itemCount,
+          publishedAt: item.snippet.publishedAt
+        }));
+      }
+
+      // Search for live/completed streams with query
+      const liveSearchParams = {
+        part: 'snippet',
+        channelId: channelId,
+        q: query,
+        type: 'video',
+        eventType: 'completed',
+        maxResults: 10,
+        key: this.apiKey
+      };
+
+      const liveSearchResponse = await axios.get(`${YOUTUBE_API_BASE}/search`, {
+        params: liveSearchParams
+      });
+
+      const liveStreams = liveSearchResponse.data.items.map(item => ({
+        id: item.id.videoId,
+        title: item.snippet.title,
+        description: item.snippet.description,
+        thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
+        publishedAt: item.snippet.publishedAt,
+        channelTitle: item.snippet.channelTitle,
+        isLive: false,
+        streamType: 'past'
+      }));
+
+      return {
+        videos,
+        shorts,
+        live: liveStreams,
+        playlists
+      };
+    } catch (error) {
+      if (error.response) {
+        console.error('YouTube API Error (searchChannel):', error.response.status);
+        console.error('Error details:', JSON.stringify(error.response.data, null, 2));
+      }
+      console.error('Error searching channel:', error.message);
       throw error;
     }
   }

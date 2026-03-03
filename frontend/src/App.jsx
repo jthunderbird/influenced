@@ -7,6 +7,7 @@ import Shorts from './pages/Shorts';
 import Live from './pages/Live';
 import Posts from './pages/Posts';
 import Playlists from './pages/Playlists';
+import Search from './pages/Search';
 import VideoPlayer from './components/VideoPlayer';
 import { api } from './services/api';
 
@@ -14,6 +15,10 @@ function App() {
   const [channelInfo, setChannelInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    // Check localStorage for saved theme preference, default to 'dark'
+    return localStorage.getItem('theme') || 'dark';
+  });
 
   useEffect(() => {
     const fetchChannelInfo = async () => {
@@ -29,6 +34,16 @@ function App() {
 
     fetchChannelInfo();
   }, []);
+
+  useEffect(() => {
+    // Apply theme to document root
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prevTheme => prevTheme === 'dark' ? 'light' : 'dark');
+  };
 
   if (loading) {
     return (
@@ -49,7 +64,7 @@ function App() {
   return (
     <Router>
       <div className="app">
-        <Header channelInfo={channelInfo} />
+        <Header channelInfo={channelInfo} theme={theme} toggleTheme={toggleTheme} />
         <main className="main-content">
           <Routes>
             <Route path="/" element={<Home />} />
@@ -58,6 +73,7 @@ function App() {
             <Route path="/live" element={<Live />} />
             <Route path="/posts" element={<Posts />} />
             <Route path="/playlists" element={<Playlists />} />
+            <Route path="/search" element={<Search />} />
             <Route path="/watch/:videoId" element={<VideoPlayer />} />
           </Routes>
         </main>
