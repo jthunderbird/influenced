@@ -8,6 +8,11 @@ export const api = {
     return response.data;
   },
 
+  getRecent: async () => {
+    const response = await axios.get(`${API_BASE}/recent`);
+    return response.data;
+  },
+
   getVideos: async (pageToken = null) => {
     const params = pageToken ? { pageToken } : {};
     const response = await axios.get(`${API_BASE}/videos`, { params });

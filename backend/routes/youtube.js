@@ -12,6 +12,16 @@ module.exports = (youtubeService, getChannelId) => {
     }
   });
 
+  // Get recent mixed content from all categories
+  router.get('/recent', async (req, res) => {
+    try {
+      const recentContent = await youtubeService.getRecentMixed(getChannelId());
+      res.json(recentContent);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get videos
   router.get('/videos', async (req, res) => {
     try {

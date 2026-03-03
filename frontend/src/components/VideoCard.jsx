@@ -23,11 +23,16 @@ function VideoCard({ video }) {
 
   return (
     <div className="video-card" onClick={handleClick}>
-      <img
-        src={video.thumbnail}
-        alt={video.title}
-        className="video-thumbnail"
-      />
+      <div className="video-thumbnail-wrapper">
+        <img
+          src={video.thumbnail}
+          alt={video.title}
+          className="video-thumbnail"
+        />
+        {video.duration && (
+          <div className="video-duration">{video.duration}</div>
+        )}
+      </div>
       <div className="video-info">
         {video.isLive && <div className="live-badge">LIVE</div>}
         <h3 className="video-title">{video.title}</h3>

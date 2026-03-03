@@ -97,10 +97,28 @@ body {
   transform: scale(1.02);
 }
 
+.video-thumbnail-wrapper {
+  position: relative;
+  width: 100%;
+}
+
 .video-thumbnail {
   width: 100%;
   aspect-ratio: 16/9;
   object-fit: cover;
+  display: block;
+}
+
+.video-duration {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .video-info {
@@ -278,6 +296,64 @@ body {
 .post-date {
   font-size: 12px;
   color: #aaaaaa;
+}
+
+.home-page {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.content-section {
+  margin-bottom: 20px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.section-link {
+  color: #3ea6ff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.section-link:hover {
+  text-decoration: underline;
+}
+
+.posts-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.post-preview-card {
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.post-preview-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  margin-top: 4px;
+}
+
+.post-preview-description {
+  font-size: 13px;
+  color: #aaaaaa;
+  line-height: 1.4;
 }
 
 @media (max-width: 768px) {
