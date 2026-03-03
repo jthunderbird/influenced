@@ -1,10 +1,13 @@
 const axios = require('axios');
+const cache = require('./cache');
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
 class YouTubeService {
   constructor(apiKey) {
     this.apiKey = apiKey;
+    // Start cache cleanup on initialization
+    cache.startCleanup(60); // Clean up every 60 seconds
   }
 
   async getChannelIdFromHandle(handle) {
@@ -59,8 +62,15 @@ class YouTubeService {
   }
 
   async getChannelInfo(channelId) {
+    const cacheKey = `channel_info_${channelId}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: channel info for ${channelId}`);
+      return cached;
+    }
+
     try {
-      console.log(`Fetching channel info for ID: ${channelId}`);
+      console.log(`Cache MISS: Fetching channel info for ID: ${channelId}`);
       const response = await axios.get(`${YOUTUBE_API_BASE}/channels`, {
         params: {
           part: 'snippet,statistics,brandingSettings',
@@ -71,7 +81,7 @@ class YouTubeService {
 
       if (response.data.items && response.data.items.length > 0) {
         const channel = response.data.items[0];
-        return {
+        const result = {
           id: channel.id,
           title: channel.snippet.title,
           description: channel.snippet.description,
@@ -82,6 +92,9 @@ class YouTubeService {
           videoCount: channel.statistics.videoCount,
           viewCount: channel.statistics.viewCount
         };
+        // Cache for 10 minutes (channel info doesn't change often)
+        cache.set(cacheKey, result, 600);
+        return result;
       }
 
       throw new Error('Channel info not found');
@@ -97,7 +110,15 @@ class YouTubeService {
   }
 
   async getVideos(channelId, maxResults = 50, pageToken = null) {
+    const cacheKey = `videos_${channelId}_${maxResults}_${pageToken || 'first'}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: videos for ${channelId}`);
+      return cached;
+    }
+
     try {
+      console.log(`Cache MISS: Fetching videos for ${channelId}`);
       const params = {
         part: 'snippet',
         channelId: channelId,
@@ -167,11 +188,14 @@ class YouTubeService {
           duration: videoMetadataMap[item.id.videoId]?.formatted
         }));
 
-      return {
+      const result = {
         items: videos,
         nextPageToken: response.data.nextPageToken,
         prevPageToken: response.data.prevPageToken
       };
+      // Cache for 5 minutes
+      cache.set(cacheKey, result, 300);
+      return result;
     } catch (error) {
       if (error.response) {
         console.error('YouTube API Error (getVideos):', error.response.status);
@@ -183,7 +207,15 @@ class YouTubeService {
   }
 
   async getShorts(channelId, maxResults = 50, pageToken = null) {
+    const cacheKey = `shorts_${channelId}_${maxResults}_${pageToken || 'first'}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: shorts for ${channelId}`);
+      return cached;
+    }
+
     try {
+      console.log(`Cache MISS: Fetching shorts for ${channelId}`);
       // Note: YouTube API doesn't have a direct way to filter shorts
       // We'll get videos and filter by duration (under 60 seconds)
       const params = {
@@ -251,11 +283,14 @@ class YouTubeService {
           duration: videoMetadataMap[item.id.videoId]?.formatted
         }));
 
-      return {
+      const result = {
         items: shorts,
         nextPageToken: response.data.nextPageToken,
         prevPageToken: response.data.prevPageToken
       };
+      // Cache for 5 minutes
+      cache.set(cacheKey, result, 300);
+      return result;
     } catch (error) {
       if (error.response) {
         console.error('YouTube API Error (getShorts):', error.response.status);
@@ -267,7 +302,15 @@ class YouTubeService {
   }
 
   async getLiveStreams(channelId, maxResults = 50, pageToken = null) {
+    const cacheKey = `live_${channelId}_${maxResults}_${pageToken || 'first'}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: live streams for ${channelId}`);
+      return cached;
+    }
+
     try {
+      console.log(`Cache MISS: Fetching live streams for ${channelId}`);
       // Fetch both current live streams and completed broadcasts
       const liveParams = {
         part: 'snippet',
@@ -327,11 +370,14 @@ class YouTubeService {
       // Combine: live streams first, then past broadcasts
       const allStreams = [...liveItems, ...completedItems];
 
-      return {
+      const result = {
         items: allStreams,
         nextPageToken: completedResponse.status === 'fulfilled' ? completedResponse.value.data.nextPageToken : null,
         prevPageToken: completedResponse.status === 'fulfilled' ? completedResponse.value.data.prevPageToken : null
       };
+      // Cache for 3 minutes (live content changes more frequently)
+      cache.set(cacheKey, result, 180);
+      return result;
     } catch (error) {
       if (error.response) {
         console.error('YouTube API Error (getLiveStreams):', error.response.status);
@@ -343,7 +389,15 @@ class YouTubeService {
   }
 
   async getPosts(channelId, maxResults = 50, pageToken = null) {
+    const cacheKey = `posts_${channelId}_${maxResults}_${pageToken || 'first'}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: posts for ${channelId}`);
+      return cached;
+    }
+
     try {
+      console.log(`Cache MISS: Fetching posts for ${channelId}`);
       const params = {
         part: 'snippet,contentDetails',
         channelId: channelId,
@@ -368,7 +422,7 @@ class YouTubeService {
                type === 'channelItem';
       });
 
-      return {
+      const result = {
         items: posts.map(item => ({
           id: item.id,
           type: item.snippet.type,
@@ -380,6 +434,9 @@ class YouTubeService {
         nextPageToken: response.data.nextPageToken,
         prevPageToken: response.data.prevPageToken
       };
+      // Cache for 10 minutes (posts don't change often)
+      cache.set(cacheKey, result, 600);
+      return result;
     } catch (error) {
       if (error.response) {
         console.error('YouTube API Error (getPosts):', error.response.status);
@@ -391,7 +448,15 @@ class YouTubeService {
   }
 
   async getPlaylists(channelId, maxResults = 50, pageToken = null) {
+    const cacheKey = `playlists_${channelId}_${maxResults}_${pageToken || 'first'}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: playlists for ${channelId}`);
+      return cached;
+    }
+
     try {
+      console.log(`Cache MISS: Fetching playlists for ${channelId}`);
       const params = {
         part: 'snippet,contentDetails',
         channelId: channelId,
@@ -405,7 +470,7 @@ class YouTubeService {
 
       const response = await axios.get(`${YOUTUBE_API_BASE}/playlists`, { params });
 
-      return {
+      const result = {
         items: response.data.items.map(item => ({
           id: item.id,
           title: item.snippet.title,
@@ -417,6 +482,9 @@ class YouTubeService {
         nextPageToken: response.data.nextPageToken,
         prevPageToken: response.data.prevPageToken
       };
+      // Cache for 10 minutes (playlists don't change often)
+      cache.set(cacheKey, result, 600);
+      return result;
     } catch (error) {
       console.error('Error getting playlists:', error.message);
       throw error;
@@ -457,8 +525,17 @@ class YouTubeService {
   }
 
   async getRecentMixed(channelId) {
+    const cacheKey = `recent_mixed_${channelId}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: recent mixed content for ${channelId}`);
+      return cached;
+    }
+
     try {
+      console.log(`Cache MISS: Fetching recent mixed content for ${channelId}`);
       // Fetch small amounts from each category
+      // Note: These individual calls will also use cache if available
       const [videos, shorts, live, posts, playlists] = await Promise.allSettled([
         this.getVideos(channelId, 6),
         this.getShorts(channelId, 6),
@@ -467,13 +544,16 @@ class YouTubeService {
         this.getPlaylists(channelId, 4)
       ]);
 
-      return {
+      const result = {
         videos: videos.status === 'fulfilled' ? videos.value.items.slice(0, 6) : [],
         shorts: shorts.status === 'fulfilled' ? shorts.value.items.slice(0, 6) : [],
         live: live.status === 'fulfilled' ? live.value.items.slice(0, 3) : [],
         posts: posts.status === 'fulfilled' ? posts.value.items.slice(0, 4) : [],
         playlists: playlists.status === 'fulfilled' ? playlists.value.items.slice(0, 4) : []
       };
+      // Cache for 5 minutes
+      cache.set(cacheKey, result, 300);
+      return result;
     } catch (error) {
       console.error('Error getting mixed recent content:', error.message);
       throw error;
@@ -481,7 +561,15 @@ class YouTubeService {
   }
 
   async searchChannel(channelId, query, maxResults = 20) {
+    const cacheKey = `search_${channelId}_${query}_${maxResults}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: search for "${query}" in ${channelId}`);
+      return cached;
+    }
+
     try {
+      console.log(`Cache MISS: Searching for "${query}" in ${channelId}`);
       // Search for videos and shorts
       const videoSearchParams = {
         part: 'snippet',
@@ -610,12 +698,15 @@ class YouTubeService {
         streamType: 'past'
       }));
 
-      return {
+      const result = {
         videos,
         shorts,
         live: liveStreams,
         playlists
       };
+      // Cache search results for 5 minutes
+      cache.set(cacheKey, result, 300);
+      return result;
     } catch (error) {
       if (error.response) {
         console.error('YouTube API Error (searchChannel):', error.response.status);

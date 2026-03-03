@@ -143,13 +143,26 @@ npm run dev
 
 ## API Quota Considerations
 
-The YouTube Data API has a daily quota limit of 10,000 units (free tier). Each API call consumes units:
+The YouTube Data API has a daily quota limit of 10,000 units (free tier). Different API calls consume different amounts of units:
 
-- Channel info: ~3 units
-- Search queries: ~100 units each
-- Playlist items: ~1 unit
+- **search** endpoint: 100 units per call (very expensive!)
+- **videos/channels/playlists** endpoints: 1 unit per call
+- **activities** endpoint: 1 unit per call
 
-Be mindful of frequent page refreshes and pagination to avoid hitting quota limits.
+### Caching System
+
+To dramatically reduce API quota usage, this application implements an in-memory caching system:
+
+- **Channel info**: Cached for 10 minutes
+- **Videos/Shorts**: Cached for 5 minutes
+- **Live streams**: Cached for 3 minutes (updates more frequently)
+- **Posts/Playlists**: Cached for 10 minutes
+- **Home page (recent mixed)**: Cached for 5 minutes
+- **Search results**: Cached for 5 minutes
+
+**Impact**: Without caching, loading the home page costs ~405 units (≈25 page loads = quota exhausted). With caching, subsequent loads within the cache window cost 0 units, reducing quota usage by 90%+ in normal usage.
+
+The cache is cleared automatically when expired items are removed every 60 seconds.
 
 ## Known Limitations
 
