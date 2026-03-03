@@ -120,31 +120,41 @@ class YouTubeService {
         return { items: [], nextPageToken: null, prevPageToken: null };
       }
 
-      // Fetch video details including duration
+      // Fetch video details including duration and aspect ratio info
       const detailsResponse = await axios.get(`${YOUTUBE_API_BASE}/videos`, {
         params: {
-          part: 'contentDetails',
+          part: 'contentDetails,player',
           id: videoIds,
           key: this.apiKey
         }
       });
 
-      // Create a map of video ID to duration (both raw and formatted)
-      const durationMap = {};
+      // Create a map of video ID to metadata
+      const videoMetadataMap = {};
       detailsResponse.data.items.forEach(item => {
-        durationMap[item.id] = {
+        const durationSeconds = this.parseDuration(item.contentDetails.duration);
+        // YouTube Shorts criteria:
+        // - Primary: duration <= 60 seconds
+        // - Secondary: embed HTML contains /shorts/ path
+        // - Tertiary: duration <= 61 seconds (account for rounding)
+        const hasShortsDuration = durationSeconds <= 61;
+        const hasShortsUrl = item.player?.embedHtml && item.player.embedHtml.includes('/shorts/');
+        const isShort = hasShortsDuration || hasShortsUrl;
+
+        videoMetadataMap[item.id] = {
           raw: item.contentDetails.duration,
-          formatted: this.formatDuration(item.contentDetails.duration)
+          formatted: this.formatDuration(item.contentDetails.duration),
+          durationSeconds: durationSeconds,
+          isShort: isShort
         };
       });
 
-      // Filter out shorts (videos under 60 seconds)
+      // Filter out shorts based on YouTube's actual classification
       const videos = response.data.items
         .filter(item => {
-          const durData = durationMap[item.id.videoId];
-          if (!durData) return true; // Include if we don't have duration data
-          const durationSeconds = this.parseDuration(durData.raw);
-          return durationSeconds > 60; // Only include videos LONGER than 60 seconds
+          const metadata = videoMetadataMap[item.id.videoId];
+          if (!metadata) return true; // Include if we don't have metadata
+          return !metadata.isShort; // Exclude if it's classified as a short
         })
         .map(item => ({
           id: item.id.videoId,
@@ -153,7 +163,7 @@ class YouTubeService {
           thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
           publishedAt: item.snippet.publishedAt,
           channelTitle: item.snippet.channelTitle,
-          duration: durationMap[item.id.videoId]?.formatted
+          duration: videoMetadataMap[item.id.videoId]?.formatted
         }));
 
       return {
@@ -197,44 +207,48 @@ class YouTubeService {
         return { items: [], nextPageToken: null, prevPageToken: null };
       }
 
-      // Fetch video details including duration
+      // Fetch video details including duration and format info
       const detailsResponse = await axios.get(`${YOUTUBE_API_BASE}/videos`, {
         params: {
-          part: 'contentDetails',
+          part: 'contentDetails,player',
           id: videoIds,
           key: this.apiKey
         }
       });
 
-      // Create a map of video ID to duration (both raw and formatted)
-      const durationMap = {};
+      // Create a map of video ID to metadata
+      const videoMetadataMap = {};
       detailsResponse.data.items.forEach(item => {
-        durationMap[item.id] = {
+        const durationSeconds = this.parseDuration(item.contentDetails.duration);
+        // YouTube Shorts criteria: same as in getVideos for consistency
+        const hasShortsDuration = durationSeconds <= 61;
+        const hasShortsUrl = item.player?.embedHtml && item.player.embedHtml.includes('/shorts/');
+        const isShort = hasShortsDuration || hasShortsUrl;
+
+        videoMetadataMap[item.id] = {
           raw: item.contentDetails.duration,
-          formatted: this.formatDuration(item.contentDetails.duration)
+          formatted: this.formatDuration(item.contentDetails.duration),
+          durationSeconds: durationSeconds,
+          isShort: isShort
         };
       });
 
-      // Filter for shorts (videos under 60 seconds) and add duration
+      // Filter for shorts based on YouTube's actual classification
       const shorts = response.data.items
-        .map(item => {
-          const durData = durationMap[item.id.videoId];
-          return {
-            id: item.id.videoId,
-            title: item.snippet.title,
-            description: item.snippet.description,
-            thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
-            publishedAt: item.snippet.publishedAt,
-            channelTitle: item.snippet.channelTitle,
-            duration: durData?.formatted
-          };
+        .filter(item => {
+          const metadata = videoMetadataMap[item.id.videoId];
+          if (!metadata) return false;
+          return metadata.isShort; // Only include if it's classified as a short
         })
-        .filter(video => {
-          const durData = durationMap[video.id];
-          if (!durData) return false;
-          const duration = this.parseDuration(durData.raw);
-          return duration <= 60;
-        });
+        .map(item => ({
+          id: item.id.videoId,
+          title: item.snippet.title,
+          description: item.snippet.description,
+          thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
+          publishedAt: item.snippet.publishedAt,
+          channelTitle: item.snippet.channelTitle,
+          duration: videoMetadataMap[item.id.videoId]?.formatted
+        }));
 
       return {
         items: shorts,
@@ -342,10 +356,28 @@ class YouTubeService {
 
       const response = await axios.get(`${YOUTUBE_API_BASE}/activities`, { params });
 
-      // Filter for ONLY community posts (social type), not uploads or videos
-      const posts = response.data.items.filter(item =>
-        item.snippet.type === 'social'
-      );
+      console.log('Activities API response - total items:', response.data.items?.length);
+
+      // Log all activity types to debug what's available
+      const activityTypes = {};
+      response.data.items.forEach(item => {
+        const type = item.snippet.type;
+        activityTypes[type] = (activityTypes[type] || 0) + 1;
+      });
+      console.log('Activity types found:', activityTypes);
+
+      // Try to capture community posts - they might be under different types
+      // Common types: 'social', 'bulletin', 'channelItem', 'comment'
+      const posts = response.data.items.filter(item => {
+        const type = item.snippet.type;
+        // Include various activity types that might represent community posts
+        return type === 'social' ||
+               type === 'bulletin' ||
+               type === 'channelItem' ||
+               (type === 'upload' && item.contentDetails?.upload?.videoId === undefined);
+      });
+
+      console.log(`Filtered ${posts.length} posts from ${response.data.items.length} activities`);
 
       return {
         items: posts.map(item => ({
