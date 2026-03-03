@@ -133,11 +133,9 @@ class YouTubeService {
       const videoMetadataMap = {};
       detailsResponse.data.items.forEach(item => {
         const durationSeconds = this.parseDuration(item.contentDetails.duration);
-        // YouTube Shorts criteria:
-        // - Primary: duration <= 60 seconds
-        // - Secondary: embed HTML contains /shorts/ path
-        // - Tertiary: duration <= 61 seconds (account for rounding)
-        const hasShortsDuration = durationSeconds <= 61;
+        // YouTube Shorts criteria - be strict about 60 second limit
+        // YouTube officially defines shorts as 60 seconds or less
+        const hasShortsDuration = durationSeconds <= 60;
         const hasShortsUrl = item.player?.embedHtml && item.player.embedHtml.includes('/shorts/');
         const isShort = hasShortsDuration || hasShortsUrl;
 
@@ -153,7 +151,10 @@ class YouTubeService {
       const videos = response.data.items
         .filter(item => {
           const metadata = videoMetadataMap[item.id.videoId];
-          if (!metadata) return true; // Include if we don't have metadata
+          if (!metadata) {
+            console.warn(`No metadata found for video ${item.id.videoId}, excluding from videos`);
+            return false; // Exclude if we don't have metadata to be safe
+          }
           return !metadata.isShort; // Exclude if it's classified as a short
         })
         .map(item => ({
@@ -221,7 +222,7 @@ class YouTubeService {
       detailsResponse.data.items.forEach(item => {
         const durationSeconds = this.parseDuration(item.contentDetails.duration);
         // YouTube Shorts criteria: same as in getVideos for consistency
-        const hasShortsDuration = durationSeconds <= 61;
+        const hasShortsDuration = durationSeconds <= 60;
         const hasShortsUrl = item.player?.embedHtml && item.player.embedHtml.includes('/shorts/');
         const isShort = hasShortsDuration || hasShortsUrl;
 
@@ -513,7 +514,7 @@ class YouTubeService {
         const videoMetadataMap = {};
         detailsResponse.data.items.forEach(item => {
           const durationSeconds = this.parseDuration(item.contentDetails.duration);
-          const hasShortsDuration = durationSeconds <= 61;
+          const hasShortsDuration = durationSeconds <= 60;
           const hasShortsUrl = item.player?.embedHtml && item.player.embedHtml.includes('/shorts/');
           const isShort = hasShortsDuration || hasShortsUrl;
 

@@ -62,7 +62,7 @@ body {
   align-items: center;
   gap: 15px;
   text-decoration: none;
-  color: white;
+  color: var(--text-primary);
 }
 
 .header-avatar {
