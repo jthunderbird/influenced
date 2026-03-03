@@ -153,14 +153,14 @@ The YouTube Data API has a daily quota limit of 10,000 units (free tier). Differ
 
 To dramatically reduce API quota usage, this application implements an in-memory caching system:
 
-- **Channel info**: Cached for 10 minutes
-- **Videos/Shorts**: Cached for 5 minutes
-- **Live streams**: Cached for 3 minutes (updates more frequently)
-- **Posts/Playlists**: Cached for 10 minutes
-- **Home page (recent mixed)**: Cached for 5 minutes
-- **Search results**: Cached for 5 minutes
+- **All content types**: Cached for 60 minutes (channel info, videos, shorts, live streams, posts, playlists, search results)
 
-**Impact**: Without caching, loading the home page costs ~405 units (≈25 page loads = quota exhausted). With caching, subsequent loads within the cache window cost 0 units, reducing quota usage by 90%+ in normal usage.
+**Impact**: With 60-minute caching, hundreds of users can visit the site within an hour and only the first visitor triggers API calls. Subsequent visitors get cached data, using 0 API units. This allows the application to scale efficiently within the 10,000 unit daily quota.
+
+**Example**:
+- First home page load: ~405 units
+- Next 100 home page loads within 60 minutes: 0 units
+- Total: 405 units (vs 40,500 units without caching = **99% reduction**)
 
 The cache is cleared automatically when expired items are removed every 60 seconds.
 

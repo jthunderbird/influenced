@@ -3,8 +3,8 @@ class Cache {
     this.cache = new Map();
   }
 
-  set(key, value, ttlSeconds = 300) {
-    // Default TTL is 5 minutes (300 seconds)
+  set(key, value, ttlSeconds = 3600) {
+    // Default TTL is 60 minutes (3600 seconds)
     const expiresAt = Date.now() + (ttlSeconds * 1000);
     this.cache.set(key, { value, expiresAt });
   }

@@ -92,8 +92,8 @@ class YouTubeService {
           videoCount: channel.statistics.videoCount,
           viewCount: channel.statistics.viewCount
         };
-        // Cache for 10 minutes (channel info doesn't change often)
-        cache.set(cacheKey, result, 600);
+        // Cache for 60 minutes
+        cache.set(cacheKey, result, 3600);
         return result;
       }
 
@@ -193,8 +193,8 @@ class YouTubeService {
         nextPageToken: response.data.nextPageToken,
         prevPageToken: response.data.prevPageToken
       };
-      // Cache for 5 minutes
-      cache.set(cacheKey, result, 300);
+      // Cache for 60 minutes
+      cache.set(cacheKey, result, 3600);
       return result;
     } catch (error) {
       if (error.response) {
@@ -288,8 +288,8 @@ class YouTubeService {
         nextPageToken: response.data.nextPageToken,
         prevPageToken: response.data.prevPageToken
       };
-      // Cache for 5 minutes
-      cache.set(cacheKey, result, 300);
+      // Cache for 60 minutes
+      cache.set(cacheKey, result, 3600);
       return result;
     } catch (error) {
       if (error.response) {
@@ -375,8 +375,8 @@ class YouTubeService {
         nextPageToken: completedResponse.status === 'fulfilled' ? completedResponse.value.data.nextPageToken : null,
         prevPageToken: completedResponse.status === 'fulfilled' ? completedResponse.value.data.prevPageToken : null
       };
-      // Cache for 3 minutes (live content changes more frequently)
-      cache.set(cacheKey, result, 180);
+      // Cache for 60 minutes
+      cache.set(cacheKey, result, 3600);
       return result;
     } catch (error) {
       if (error.response) {
@@ -434,8 +434,8 @@ class YouTubeService {
         nextPageToken: response.data.nextPageToken,
         prevPageToken: response.data.prevPageToken
       };
-      // Cache for 10 minutes (posts don't change often)
-      cache.set(cacheKey, result, 600);
+      // Cache for 60 minutes (posts don't change often)
+      cache.set(cacheKey, result, 3600);
       return result;
     } catch (error) {
       if (error.response) {
@@ -482,8 +482,8 @@ class YouTubeService {
         nextPageToken: response.data.nextPageToken,
         prevPageToken: response.data.prevPageToken
       };
-      // Cache for 10 minutes (playlists don't change often)
-      cache.set(cacheKey, result, 600);
+      // Cache for 60 minutes (playlists don't change often)
+      cache.set(cacheKey, result, 3600);
       return result;
     } catch (error) {
       console.error('Error getting playlists:', error.message);
@@ -551,8 +551,8 @@ class YouTubeService {
         posts: posts.status === 'fulfilled' ? posts.value.items.slice(0, 4) : [],
         playlists: playlists.status === 'fulfilled' ? playlists.value.items.slice(0, 4) : []
       };
-      // Cache for 5 minutes
-      cache.set(cacheKey, result, 300);
+      // Cache for 60 minutes
+      cache.set(cacheKey, result, 3600);
       return result;
     } catch (error) {
       console.error('Error getting mixed recent content:', error.message);
@@ -705,7 +705,7 @@ class YouTubeService {
         playlists
       };
       // Cache search results for 5 minutes
-      cache.set(cacheKey, result, 300);
+      cache.set(cacheKey, result, 3600);
       return result;
     } catch (error) {
       if (error.response) {
