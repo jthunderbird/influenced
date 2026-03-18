@@ -1,5 +1,6 @@
 .env
 .app/
 .work/
+.worktrees/
 cache_data/
 cookie*
