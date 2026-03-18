@@ -16,6 +16,8 @@ A containerized web application that provides an alternative frontend for viewin
 - **Video Playback**: Watch videos directly in the application
 - **Responsive Design**: Works on desktop and mobile devices
 - **Containerized**: Easy deployment with Docker
+- **Admin Panel**: Configure settings via web UI (optional)
+- **Social Media Links**: Add Facebook, X, TikTok, and Instagram links
 
 ## Prerequisites
 
@@ -29,6 +31,30 @@ A containerized web application that provides an alternative frontend for viewin
 3. Enable the YouTube Data API v3
 4. Create credentials (API key)
 5. Copy the API key for use in this application
+
+## Environment Variables
+
+The following environment variables can be configured:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `YOUTUBE_API_KEY` | Yes | - | YouTube Data API v3 key |
+| `YOUTUBE_CHANNEL_HANDLE` | Yes | - | YouTube channel handle (@username or channel ID) |
+| `FACEBOOK_HANDLE` | No | - | Facebook username (without @) |
+| `X_HANDLE` | No | - | X/Twitter username (without @) |
+| `TIKTOK_HANDLE` | No | - | TikTok username (without @) |
+| `INSTAGRAM_HANDLE` | No | - | Instagram username (without @) |
+| `RECENT_DAYS` | No | 7 | Days to look back for recent content |
+| `RECENT_VIDEOS` | No | 10 | Max videos shown on home page |
+| `RECENT_SHORTS` | No | 10 | Max shorts shown on home page |
+| `ALLOWED_ORIGINS` | No | - | Comma-separated CORS origins |
+| `ADMIN_USERNAME` | No | admin | Username for admin login |
+| `ADMIN_PASSWORD` | No | Password!123 | Password for admin login |
+| `USE_HELMET` | No | false | Enable security headers |
+| `USE_RATE_LIMIT` | No | false | Enable API rate limiting |
+| `SESSION_SECRET` | No | (auto-generated) | Secret for session management |
+| `CACHE_DIR` | No | /app/.cache | Directory for cache storage |
+| `PORT` | No | 3000 | Server port |
 
 ## Installation
 
@@ -81,6 +107,34 @@ Once the container is running, open your browser to `http://localhost:3000`
 - **Live**: See current live streams and past broadcasts
 - **Posts**: View community posts (usually unavailable due to API limitations)
 - **Playlists**: Browse channel playlists
+
+### Admin Panel
+
+The application includes an admin panel for configuring settings via a web UI. This allows deployment with no environment variables - everything can be set up through the admin panel after first launch.
+
+**Access**: Navigate to `/admin/login` in your browser
+
+**Default Credentials**:
+- Username: `admin`
+- Password: `Password!123`
+
+**Important**:
+- Change the default admin credentials in production
+- Settings saved through the admin panel are persisted to the `.env` file
+- Some settings require a container restart to take effect (marked in the UI)
+- The admin panel is intentionally not linked from the main navigation
+
+### Alternative Deployment: Zero-Config Option
+
+You can deploy the application without setting any environment variables:
+
+1. Mount a `.env` file at runtime (see Docker Compose configuration)
+2. Start the container
+3. The app will prompt for initial configuration via the admin panel at `/admin/login`
+
+This approach is useful for quick testing but note that:
+- The container must be restarted for changes to take effect
+- Environment variables are recommended for production deployments as they are applied at startup
 
 ### Changing Channels
 
@@ -178,6 +232,34 @@ YouTube's official API does not reliably provide access to community posts throu
 The `social`, `bulletin`, and `channelItem` activity types that would represent community posts are rarely (if ever) returned by the API, even for channels with active community posts visible on YouTube's website.
 
 **Workaround:** There is no workaround using the official YouTube Data API. Third-party scraping solutions exist but violate YouTube's Terms of Service and are not implemented in this application.
+
+## Docker Hub Publishing
+
+This project includes GitHub Actions for automatic Docker image publishing:
+
+### Setup
+
+1. Go to [Docker Hub](https://hub.docker.com/) and create an account if you don't have one
+2. Create a repository named `influenced`
+3. In your GitHub repository settings, add these secrets:
+   - `DOCKERHUB_USERNAME`: Your Docker Hub username
+   - `DOCKERHUB_TOKEN`: A Docker Hub access token (generate at https://hub.docker.com/settings/security)
+
+### Automated Builds
+
+Every push to the `main` branch will:
+1. Build the Docker image
+2. Push to Docker Hub as `jthunderbird/influenced:latest`
+3. Also tag with the Git SHA for versioning
+
+### Manual Build
+
+To build and push manually:
+
+```bash
+docker build -t jthunderbird/influenced .
+docker push jthunderbird/influenced
+```
 
 ## Troubleshooting
 

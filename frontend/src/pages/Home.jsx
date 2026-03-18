@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import VideoGrid from '../components/VideoGrid';
+import HorizontalVideoScroll from '../components/HorizontalVideoScroll';
 import { api } from '../services/api';
 
 function Home() {
@@ -34,7 +35,7 @@ function Home() {
             <h2 className="section-title">Recent Videos</h2>
             <Link to="/videos" className="section-link">View all</Link>
           </div>
-          <VideoGrid videos={content.videos} />
+          <HorizontalVideoScroll videos={content.videos} />
         </section>
       )}
 
@@ -44,7 +45,7 @@ function Home() {
             <h2 className="section-title">Recent Shorts</h2>
             <Link to="/shorts" className="section-link">View all</Link>
           </div>
-          <VideoGrid videos={content.shorts} />
+          <HorizontalVideoScroll videos={content.shorts} />
         </section>
       )}
 
@@ -54,7 +55,7 @@ function Home() {
             <h2 className="section-title">Live Streams</h2>
             <Link to="/live" className="section-link">View all</Link>
           </div>
-          <VideoGrid videos={content.live} />
+          <HorizontalVideoScroll videos={content.live} />
         </section>
       )}
 

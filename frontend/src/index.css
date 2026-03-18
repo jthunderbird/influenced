@@ -503,3 +503,313 @@ body {
     overflow-x: auto;
   }
 }
+
+.horizontal-scroll-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  overflow: hidden;
+  padding: 0 50px;
+}
+
+.horizontal-scroll-container {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  padding: 10px 0;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  width: 100%;
+}
+
+.horizontal-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.horizontal-scroll-item {
+  flex: 0 0 320px;
+}
+
+.scroll-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: var(--bg-secondary);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  color: var(--text-primary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.2s;
+}
+
+.scroll-arrow:hover {
+  background-color: var(--bg-hover);
+}
+
+.scroll-arrow-left {
+  left: 5px;
+}
+
+.scroll-arrow-right {
+  right: 5px;
+}
+
+@media (max-width: 768px) {
+  .horizontal-scroll-item {
+    flex: 0 0 260px;
+  }
+}
+
+/* Login Page */
+.login-page {
+  min-height: calc(100vh - 80px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.login-form {
+  background-color: var(--bg-secondary);
+  padding: 40px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.login-form h2 {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.login-form .form-group {
+  margin-bottom: 20px;
+}
+
+.login-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.login-form input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.login-form input:focus {
+  outline: none;
+  border-color: #ff0000;
+}
+
+.login-form button {
+  width: 100%;
+  padding: 14px;
+  background-color: #ff0000;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.login-form button:hover {
+  background-color: #cc0000;
+}
+
+.login-form .error {
+  background-color: rgba(255, 0, 0, 0.1);
+  color: #ff4444;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Admin Page */
+.admin-page {
+  padding: 30px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.admin-header .logout-btn {
+  padding: 10px 20px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-header .logout-btn:hover {
+  background-color: var(--bg-hover);
+}
+
+.settings-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.setting-item {
+  background-color: var(--bg-secondary);
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.setting-item label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.setting-item .setting-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+.setting-item input,
+.setting-item select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.setting-item input:focus,
+.setting-item select:focus {
+  outline: none;
+  border-color: #ff0000;
+}
+
+.restart-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  background-color: #ff9800;
+  color: #000;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.admin-actions {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 15px;
+  padding: 15px 25px;
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-color);
+}
+
+.admin-actions button {
+  padding: 12px 30px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-actions button:first-child {
+  background-color: #ff0000;
+  color: white;
+  border: none;
+}
+
+.admin-actions button:first-child:hover {
+  background-color: #cc0000;
+}
+
+.admin-actions button:first-child:disabled {
+  background-color: #666;
+  cursor: not-allowed;
+}
+
+.admin-actions .cancel-btn {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.admin-actions .cancel-btn:hover {
+  background-color: var(--bg-hover);
+}
+
+.admin-page .error {
+  background-color: rgba(255, 0, 0, 0.1);
+  color: #ff4444;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.admin-page .success {
+  background-color: rgba(0, 200, 0, 0.15);
+  color: #00cc00;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid rgba(0, 200, 0, 0.3);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

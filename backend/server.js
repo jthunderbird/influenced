@@ -1,20 +1,114 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const session = require('express-session');
 const path = require('path');
 const YouTubeService = require('./services/youtubeService');
 const youtubeRoutes = require('./routes/youtube');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Security middleware - only enable helmet in production if USE_HELMET is set
+if (process.env.USE_HELMET === 'true') {
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https://i.ytimg.com", "https://yt3.ggpht.com", "https://*.googlesyndication.com"],
+        connectSrc: ["'self'", "https://www.googleapis.com"],
+        frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com"],
+        fontSrc: ["'self'"],
+      },
+    },
+  }));
+}
+
+// CORS - enable for session/credentials support
+if (process.env.ALLOWED_ORIGINS) {
+  const corsOptions = {
+    origin: function(origin, callback) {
+      const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+      
+      // Allow if origin matches exactly
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      // Allow if origin hostname matches (with or without protocol, supports subdomains)
+      const originHostname = origin.replace(/^https?:\/\//, '');
+      for (const allowed of allowedOrigins) {
+        const allowedHostname = allowed.replace(/^https?:\/\//, '');
+        if (originHostname === allowedHostname || originHostname.endsWith('.' + allowedHostname)) {
+          return callback(null, true);
+        }
+      }
+      
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+  };
+  app.use(cors(corsOptions));
+} else {
+  // Allow all origins when ALLOWED_ORIGINS is not set (needed for session cookies)
+  app.use(cors({ origin: true, credentials: true }));
+}
+
+// Rate limiting - only enable if USE_RATE_LIMIT is set
+if (process.env.USE_RATE_LIMIT === 'true') {
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: { error: 'Too many requests, please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use('/api', limiter);
+}
+
 // Middleware
-app.use(cors());
 app.use(express.json());
+
+// Session configuration
+const sessionConfig = {
+  secret: process.env.SESSION_SECRET || 'influenced-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    secure: false,
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: 'lax'
+  }
+};
+app.use(session(sessionConfig));
 
 // Environment variables validation
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const YOUTUBE_CHANNEL_HANDLE = process.env.YOUTUBE_CHANNEL_HANDLE;
+
+// Social media handles (optional) - read dynamically from process.env
+const getSocialMedia = () => ({
+  facebook: process.env.FACEBOOK_HANDLE || null,
+  x: process.env.X_HANDLE || null,
+  tiktok: process.env.TIKTOK_HANDLE || null,
+  instagram: process.env.INSTAGRAM_HANDLE || null
+});
+
+// Recent content settings - read dynamically from process.env
+const getRecentConfig = () => ({
+  days: parseInt(process.env.RECENT_DAYS) || 7,
+  videos: parseInt(process.env.RECENT_VIDEOS) || 10,
+  shorts: parseInt(process.env.RECENT_SHORTS) || 10,
+  live: parseInt(process.env.RECENT_LIVE) || 5,
+  posts: parseInt(process.env.RECENT_POSTS) || 5,
+  playlists: parseInt(process.env.RECENT_PLAYLISTS) || 5
+});
 
 if (!YOUTUBE_API_KEY) {
   console.error('Error: YOUTUBE_API_KEY environment variable is not set');
@@ -54,24 +148,73 @@ app.use('/api', async (req, res, next) => {
     return res.status(503).json({ error: 'Service initializing, please wait...' });
   }
   next();
-}, youtubeRoutes(youtubeService, () => channelId));
+}, youtubeRoutes(youtubeService, () => channelId, getSocialMedia, getRecentConfig));
+
+// Admin routes
+app.use('/api/admin', adminRoutes());
 
 // Serve static files from React build (in production)
 const buildPath = path.join(__dirname, 'frontend/dist');
 app.use(express.static(buildPath));
 
-// Serve React app for all other routes
+// Serve React app for all other routes (must be before 404 handler)
 app.get('*', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
 });
 
+// 404 handler (only for API routes that don't match)
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    error: process.env.NODE_ENV === 'production' 
+      ? 'Internal server error' 
+      : err.message 
+  });
+});
+
+const fs = require('fs');
+
 // Start server
+let server;
+
 async function startServer() {
   await initializeChannel();
 
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
     console.log(`Channel: ${YOUTUBE_CHANNEL_HANDLE}`);
+    
+    // Watch for restart trigger file
+    const restartFile = path.join(__dirname, '.restart');
+    const restartMarker = path.join(__dirname, '.restart_marker');
+    
+    // Create the restart file if it doesn't exist
+    if (!fs.existsSync(restartFile)) {
+      fs.writeFileSync(restartFile, '');
+    }
+    
+    fs.watch(restartFile, (eventType) => {
+      if (eventType === 'change') {
+        try {
+          const content = fs.readFileSync(restartFile, 'utf8').trim();
+          if (content === 'FULL_RESTART') {
+            console.log('Full restart triggered, shutting down...');
+            fs.writeFileSync(restartFile, '');
+            if (server) {
+              server.close(() => {
+                console.log('Server closed, will restart...');
+                process.exit(0);
+              });
+            }
+          }
+        } catch (e) {}
+      }
+    });
   });
 }
 

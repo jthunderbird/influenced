@@ -1,1 +1,5 @@
 .env
+.app/
+.work/
+cache_data/
+cookie*

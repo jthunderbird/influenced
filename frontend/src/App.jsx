@@ -9,6 +9,8 @@ import Posts from './pages/Posts';
 import Playlists from './pages/Playlists';
 import Search from './pages/Search';
 import VideoPlayer from './components/VideoPlayer';
+import Admin from './pages/Admin';
+import Login from './pages/Login';
 import { api } from './services/api';
 
 function App() {
@@ -40,6 +42,23 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    // Set page title based on channel name
+    if (channelInfo?.title) {
+      document.title = `${channelInfo.title} - influenced`;
+    }
+  }, [channelInfo]);
+
+  useEffect(() => {
+    // Set favicon to channel avatar
+    if (channelInfo?.avatar) {
+      const link = document.querySelector("link[rel~='icon']");
+      if (link) {
+        link.href = channelInfo.avatar;
+      }
+    }
+  }, [channelInfo]);
 
   const toggleTheme = () => {
     setTheme(prevTheme => prevTheme === 'dark' ? 'light' : 'dark');
@@ -75,6 +94,8 @@ function App() {
             <Route path="/playlists" element={<Playlists />} />
             <Route path="/search" element={<Search />} />
             <Route path="/watch/:videoId" element={<VideoPlayer />} />
+            <Route path="/admin/login" element={<Login />} />
+            <Route path="/admin" element={<Admin />} />
           </Routes>
         </main>
       </div>

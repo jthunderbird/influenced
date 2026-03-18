@@ -109,8 +109,13 @@ class YouTubeService {
     }
   }
 
-  async getVideos(channelId, maxResults = 50, pageToken = null) {
+  async getVideos(channelId, maxResults = 50, pageToken = null, bypassCache = false) {
     const cacheKey = `videos_${channelId}_${maxResults}_${pageToken || 'first'}`;
+    
+    // Debug: allow cache bypass via query param
+    if (bypassCache) {
+      cache.delete(cacheKey);
+    }
     const cached = cache.get(cacheKey);
     if (cached) {
       console.log(`Cache HIT: videos for ${channelId}`);
@@ -168,15 +173,33 @@ class YouTubeService {
         };
       });
 
-      // Filter out shorts based on YouTube's actual classification
+      // Filter out shorts - be conservative and exclude anything that might be a short
+      // YouTube defines shorts as 60 seconds or less
       const videos = response.data.items
         .filter(item => {
           const metadata = videoMetadataMap[item.id.videoId];
           if (!metadata) {
             console.warn(`No metadata found for video ${item.id.videoId}, excluding from videos`);
-            return false; // Exclude if we don't have metadata to be safe
+            return false;
           }
-          return !metadata.isShort; // Exclude if it's classified as a short
+          
+          // Check if it's definitely a short (from embedHtml)
+          const hasShortsUrl = item.player?.embedHtml && item.player.embedHtml.includes('/shorts/');
+          
+          // Conservative check: if embedHtml shows it's a short, exclude
+          if (hasShortsUrl) {
+            console.log(`Excluding short (embedHtml): ${item.snippet.title}`);
+            return false;
+          }
+          
+          // Also exclude if duration is 60 seconds or less
+          // This catches shorts that might not have embedHtml set correctly
+          if (metadata.durationSeconds <= 60) {
+            console.log(`Excluding short (duration <= 60s): ${item.snippet.title} (${metadata.durationSeconds}s)`);
+            return false;
+          }
+          
+          return true;
         })
         .map(item => ({
           id: item.id.videoId,
@@ -266,12 +289,20 @@ class YouTubeService {
         };
       });
 
-      // Filter for shorts based on YouTube's actual classification
+      // Filter for shorts - include videos that are definitely shorts
       const shorts = response.data.items
         .filter(item => {
           const metadata = videoMetadataMap[item.id.videoId];
           if (!metadata) return false;
-          return metadata.isShort; // Only include if it's classified as a short
+          
+          // Include if embedHtml shows it's a short
+          const hasShortsUrl = item.player?.embedHtml && item.player.embedHtml.includes('/shorts/');
+          if (hasShortsUrl) return true;
+          
+          // Include if duration is 60 seconds or less
+          if (metadata.durationSeconds <= 60) return true;
+          
+          return false;
         })
         .map(item => ({
           id: item.id.videoId,
@@ -524,32 +555,54 @@ class YouTubeService {
     }
   }
 
-  async getRecentMixed(channelId) {
-    const cacheKey = `recent_mixed_${channelId}`;
+  async getRecentMixed(channelId, config = {}) {
+    const {
+      days = 7,
+      videos: videoLimit = 10,
+      shorts: shortLimit = 10,
+      live: liveLimit = 5,
+      posts: postLimit = 5,
+      playlists: playlistLimit = 5
+    } = config;
+    
+    const cacheKey = `recent_mixed_${channelId}_${days}_${videoLimit}_${shortLimit}`;
     const cached = cache.get(cacheKey);
     if (cached) {
-      console.log(`Cache HIT: recent mixed content for ${channelId}`);
+      console.log(`Cache HIT: recent mixed content for ${channelId} (${days} days)`);
       return cached;
     }
 
     try {
-      console.log(`Cache MISS: Fetching recent mixed content for ${channelId}`);
-      // Fetch small amounts from each category
-      // Note: These individual calls will also use cache if available
+      console.log(`Cache MISS: Fetching recent mixed content for ${channelId} (${days} days)`);
+      
+      // Calculate cutoff date
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+      const cutoffISO = cutoffDate.toISOString();
+
+      // Fetch more content to filter by date
       const [videos, shorts, live, posts, playlists] = await Promise.allSettled([
-        this.getVideos(channelId, 6),
-        this.getShorts(channelId, 6),
-        this.getLiveStreams(channelId, 3),
-        this.getPosts(channelId, 4),
-        this.getPlaylists(channelId, 4)
+        this.getVideos(channelId, 50),
+        this.getShorts(channelId, 50),
+        this.getLiveStreams(channelId, 10),
+        this.getPosts(channelId, 20),
+        this.getPlaylists(channelId, 10)
       ]);
 
+      // Helper to filter items by date
+      const filterByDate = (items) => {
+        return items.filter(item => item.publishedAt >= cutoffISO);
+      };
+
+      // Helper to slice and limit
+      const limitItems = (items, max) => items.slice(0, max);
+
       const result = {
-        videos: videos.status === 'fulfilled' ? videos.value.items.slice(0, 6) : [],
-        shorts: shorts.status === 'fulfilled' ? shorts.value.items.slice(0, 6) : [],
-        live: live.status === 'fulfilled' ? live.value.items.slice(0, 3) : [],
-        posts: posts.status === 'fulfilled' ? posts.value.items.slice(0, 4) : [],
-        playlists: playlists.status === 'fulfilled' ? playlists.value.items.slice(0, 4) : []
+        videos: videos.status === 'fulfilled' ? limitItems(filterByDate(videos.value.items), videoLimit) : [],
+        shorts: shorts.status === 'fulfilled' ? limitItems(filterByDate(shorts.value.items), shortLimit) : [],
+        live: live.status === 'fulfilled' ? limitItems(filterByDate(live.value.items), liveLimit) : [],
+        posts: posts.status === 'fulfilled' ? limitItems(filterByDate(posts.value.items), postLimit) : [],
+        playlists: playlists.status === 'fulfilled' ? limitItems(filterByDate(playlists.value.items), playlistLimit) : []
       };
       // Cache for 60 minutes
       cache.set(cacheKey, result, 3600);
