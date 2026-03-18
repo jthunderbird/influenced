@@ -18,7 +18,7 @@ const requireStoreEnabled = (req, res, next) => {
   next();
 };
 
-router.get('/config', (req, res) => {
+router.get('/config', requireStoreEnabled, (req, res) => {
   const config = getStoreConfig();
   res.json({
     enabled: config.enabled,
