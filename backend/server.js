@@ -78,6 +78,11 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   
+  if (!webhookSecret) {
+    console.error('Stripe webhook error: STRIPE_WEBHOOK_SECRET is not set');
+    return res.status(500).send('Webhook configuration error');
+  }
+  
   let event;
   
   try {
@@ -114,7 +119,7 @@ const sessionConfig = {
   resave: false,
   saveUninitialized: true,
   cookie: {
-    secure: false,
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
     sameSite: 'lax'
