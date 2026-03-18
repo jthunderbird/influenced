@@ -8,6 +8,7 @@ const path = require('path');
 const YouTubeService = require('./services/youtubeService');
 const youtubeRoutes = require('./routes/youtube');
 const adminRoutes = require('./routes/admin');
+const storeRoutes = require('./routes/store');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -71,6 +72,39 @@ if (process.env.USE_RATE_LIMIT === 'true') {
   app.use('/api', limiter);
 }
 
+// Stripe webhook - must be before express.json() middleware
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  
+  let event;
+  
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err) {
+    console.error('Stripe webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  
+  switch (event.type) {
+    case 'checkout.session.completed':
+      const session = event.data.object;
+      console.log('Payment successful for session:', session.id);
+      break;
+    case 'payment_intent.succeeded':
+      console.log('PaymentIntent succeeded:', event.data.object.id);
+      break;
+    case 'payment_intent.payment_failed':
+      console.log('Payment failed:', event.data.object.id);
+      break;
+    default:
+      console.log('Unhandled event type:', event.type);
+  }
+  
+  res.json({ received: true });
+});
+
 // Middleware
 app.use(express.json());
 
@@ -120,6 +154,17 @@ if (!YOUTUBE_CHANNEL_HANDLE) {
   process.exit(1);
 }
 
+// Store validation (warnings only, not blocking)
+if (process.env.STORE_ENABLED === 'true') {
+  console.log('Store is enabled');
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.warn('Warning: STORE_ENABLED but STRIPE_SECRET_KEY not set');
+  }
+  if (!process.env.MEDUSA_URL) {
+    console.warn('Warning: STORE_ENABLED but MEDUSA_URL not set (defaulting to http://localhost:9000)');
+  }
+}
+
 // Initialize YouTube service
 const youtubeService = new YouTubeService(YOUTUBE_API_KEY);
 let channelId = null;
@@ -152,6 +197,9 @@ app.use('/api', async (req, res, next) => {
 
 // Admin routes
 app.use('/api/admin', adminRoutes());
+
+// Store routes (requires store enabled)
+app.use('/api/store', storeRoutes);
 
 // Serve static files from React build (in production)
 const buildPath = path.join(__dirname, 'frontend/dist');
