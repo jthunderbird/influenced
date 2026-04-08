@@ -11,6 +11,13 @@ class YouTubeService {
   }
 
   async getChannelIdFromHandle(handle) {
+    const cacheKey = `channel_handle_${handle}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      console.log(`Cache HIT: channel ID for handle ${handle}`);
+      return cached;
+    }
+
     try {
       // Remove @ symbol if present
       const cleanHandle = handle.startsWith('@') ? handle.substring(1) : handle;
@@ -26,7 +33,10 @@ class YouTubeService {
         });
 
         if (response.data.items && response.data.items.length > 0) {
-          return response.data.items[0].id;
+          const channelId = response.data.items[0].id;
+          // Cache for 7 days since channel IDs don't change often
+          cache.set(cacheKey, channelId, 7 * 24 * 3600);
+          return channelId;
         }
       } catch (err) {
         console.log('forUsername lookup failed, trying search...');
@@ -47,6 +57,8 @@ class YouTubeService {
         // Return the first result's channel ID (it's in id.channelId for search results)
         const foundChannelId = searchResponse.data.items[0].id.channelId;
         console.log(`Found channel ID via search: ${foundChannelId}`);
+        // Cache for 7 days
+        cache.set(cacheKey, foundChannelId, 7 * 24 * 3600);
         return foundChannelId;
       }
 

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import VideoGrid from '../components/VideoGrid';
 import HorizontalVideoScroll from '../components/HorizontalVideoScroll';
 import { api } from '../services/api';
@@ -26,44 +25,60 @@ function Home() {
 
   if (loading) return <div className="loading">Loading...</div>;
   if (error) return <div className="error">Error: {error}</div>;
+  if (!content) return <div className="loading">No content</div>;
+
+  const hasVideos = content.videos && content.videos.length > 0;
+  const hasShorts = content.shorts && content.shorts.length > 0;
+  const hasLive = content.live && content.live.length > 0;
+  const hasPosts = content.posts && content.posts.length > 0;
+  const hasPlaylists = content.playlists && content.playlists.length > 0;
+
+  if (!hasVideos && !hasShorts && !hasLive && !hasPosts && !hasPlaylists) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center' }}>
+        <p>No recent content available.</p>
+        <p>Check the Videos, Shorts, or Posts pages for more content.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="home-page">
-      {content?.videos && content.videos.length > 0 && (
+      {hasVideos && (
         <section className="content-section">
           <div className="section-header">
             <h2 className="section-title">Recent Videos</h2>
-            <Link to="/videos" className="section-link">View all</Link>
+            <a href="/videos" className="section-link">View all</a>
           </div>
           <HorizontalVideoScroll videos={content.videos} />
         </section>
       )}
 
-      {content?.shorts && content.shorts.length > 0 && (
+      {hasShorts && (
         <section className="content-section">
           <div className="section-header">
             <h2 className="section-title">Recent Shorts</h2>
-            <Link to="/shorts" className="section-link">View all</Link>
+            <a href="/shorts" className="section-link">View all</a>
           </div>
           <HorizontalVideoScroll videos={content.shorts} />
         </section>
       )}
 
-      {content?.live && content.live.length > 0 && (
+      {hasLive && (
         <section className="content-section">
           <div className="section-header">
             <h2 className="section-title">Live Streams</h2>
-            <Link to="/live" className="section-link">View all</Link>
+            <a href="/live" className="section-link">View all</a>
           </div>
           <HorizontalVideoScroll videos={content.live} />
         </section>
       )}
 
-      {content?.posts && content.posts.length > 0 && (
+      {hasPosts && (
         <section className="content-section">
           <div className="section-header">
             <h2 className="section-title">Recent Posts</h2>
-            <Link to="/posts" className="section-link">View all</Link>
+            <a href="/posts" className="section-link">View all</a>
           </div>
           <div className="posts-preview">
             {content.posts.map((post) => (
@@ -82,11 +97,11 @@ function Home() {
         </section>
       )}
 
-      {content?.playlists && content.playlists.length > 0 && (
+      {hasPlaylists && (
         <section className="content-section">
           <div className="section-header">
             <h2 className="section-title">Playlists</h2>
-            <Link to="/playlists" className="section-link">View all</Link>
+            <a href="/playlists" className="section-link">View all</a>
           </div>
           <div className="playlist-grid">
             {content.playlists.map((playlist) => (

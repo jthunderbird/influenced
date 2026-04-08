@@ -52,5 +52,10 @@ export const api = {
   search: async (query) => {
     const response = await axios.get(`${API_BASE}/search`, { params: { q: query } });
     return response.data;
+  },
+
+  getStoreConfig: async () => {
+    const response = await axios.get(`${API_BASE}/store/config`);
+    return response.data;
   }
 };

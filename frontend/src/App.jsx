@@ -9,17 +9,33 @@ import Posts from './pages/Posts';
 import Playlists from './pages/Playlists';
 import Search from './pages/Search';
 import VideoPlayer from './components/VideoPlayer';
-import Admin from './pages/Admin';
 import Login from './pages/Login';
+import Store from './pages/Store';
+import ProductDetail from './pages/ProductDetail';
+import Cart from './pages/Cart';
+import Checkout from './pages/Checkout';
+import OrderConfirmation from './pages/OrderConfirmation';
+import AdminSettings from './pages/AdminSettings';
+import AdminProducts from './pages/AdminProducts';
+import AdminOrders from './pages/AdminOrders';
+import AdminStoreConfig from './pages/AdminStoreConfig';
+import AdminSocial from './pages/AdminSocial';
+import AdminContent from './pages/AdminContent';
+import AdminSync from './pages/AdminSync';
 import { api } from './services/api';
+import { StoreProvider } from './contexts/StoreContext';
+import { CartProvider } from './contexts/CartContext';
 
 function App() {
   const [channelInfo, setChannelInfo] = useState(null);
+  const [storeEnabled, setStoreEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [theme, setTheme] = useState(() => {
-    // Check localStorage for saved theme preference, default to 'dark'
-    return localStorage.getItem('theme') || 'dark';
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') || 'dark';
+    }
+    return 'dark';
   });
 
   useEffect(() => {
@@ -34,25 +50,34 @@ function App() {
       }
     };
 
+    const fetchStoreConfig = async () => {
+      try {
+        const config = await api.getStoreConfig();
+        setStoreEnabled(config.enabled || false);
+      } catch (err) {
+        console.error('Error fetching store config:', err);
+      }
+    };
+
     fetchChannelInfo();
+    fetchStoreConfig();
   }, []);
 
   useEffect(() => {
-    // Apply theme to document root
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
+    if (typeof window !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+    }
   }, [theme]);
 
   useEffect(() => {
-    // Set page title based on channel name
     if (channelInfo?.title) {
       document.title = `${channelInfo.title} - influenced`;
     }
   }, [channelInfo]);
 
   useEffect(() => {
-    // Set favicon to channel avatar
-    if (channelInfo?.avatar) {
+    if (channelInfo?.avatar && typeof window !== 'undefined') {
       const link = document.querySelector("link[rel~='icon']");
       if (link) {
         link.href = channelInfo.avatar;
@@ -81,25 +106,40 @@ function App() {
   }
 
   return (
-    <Router>
-      <div className="app">
-        <Header channelInfo={channelInfo} theme={theme} toggleTheme={toggleTheme} />
-        <main className="main-content">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/videos" element={<Videos />} />
-            <Route path="/shorts" element={<Shorts />} />
-            <Route path="/live" element={<Live />} />
-            <Route path="/posts" element={<Posts />} />
-            <Route path="/playlists" element={<Playlists />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/watch/:videoId" element={<VideoPlayer />} />
-            <Route path="/admin/login" element={<Login />} />
-            <Route path="/admin" element={<Admin />} />
-          </Routes>
-        </main>
-      </div>
-    </Router>
+    <StoreProvider>
+      <CartProvider>
+        <Router>
+          <div className="app">
+            <Header channelInfo={channelInfo} theme={theme} toggleTheme={toggleTheme} storeEnabled={storeEnabled} />
+            <main className="main-content">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/videos" element={<Videos />} />
+                <Route path="/shorts" element={<Shorts />} />
+                <Route path="/live" element={<Live />} />
+                <Route path="/posts" element={<Posts />} />
+                <Route path="/playlists" element={<Playlists />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/watch/:videoId" element={<VideoPlayer />} />
+                <Route path="/admin/login" element={<Login />} />
+                <Route path="/admin" element={<AdminSettings />} />
+                <Route path="/admin/social" element={<AdminSocial />} />
+                <Route path="/admin/content" element={<AdminContent />} />
+                <Route path="/admin/store" element={<AdminStoreConfig />} />
+                <Route path="/admin/products" element={<AdminProducts />} />
+                <Route path="/admin/orders" element={<AdminOrders />} />
+                <Route path="/admin/sync" element={<AdminSync />} />
+                <Route path="/store" element={<Store />} />
+                <Route path="/store/product/:id" element={<ProductDetail />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/order/:orderId" element={<OrderConfirmation />} />
+              </Routes>
+            </main>
+          </div>
+        </Router>
+      </CartProvider>
+    </StoreProvider>
   );
 }
 

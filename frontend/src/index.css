@@ -102,6 +102,22 @@ body {
   background-color: var(--bg-hover);
 }
 
+.nav-link-store {
+  background-color: #22c55e20;
+  color: #22c55e;
+  border: 1px solid #22c55e;
+}
+
+.nav-link-store:hover {
+  background-color: #22c55e;
+  color: white;
+}
+
+.nav-link-store.active {
+  background-color: #22c55e;
+  color: white;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -125,6 +141,24 @@ body {
 
 .header-icon-btn:hover {
   background-color: var(--bg-hover);
+}
+
+.cart-btn {
+  position: relative;
+}
+
+.cart-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background-color: #ef4444;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 5px;
+  border-radius: 10px;
+  min-width: 16px;
+  text-align: center;
 }
 
 .search-overlay {

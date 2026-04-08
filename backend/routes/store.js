@@ -1,7 +1,20 @@
 const express = require('express');
-const medusaService = require('../services/medusa');
+const MedusaService = require('../services/medusa');
 
 const router = express.Router();
+
+const MEDUSA_URL = process.env.MEDUSA_URL || 'http://medusa:9000';
+const MEDUSA_PUBLISHABLE_KEY = process.env.MEDUSA_PUBLISHABLE_KEY || '';
+
+function getMedusaService(token = null) {
+  const service = new MedusaService();
+  service.setBaseUrl(MEDUSA_URL);
+  service.setPublishableKey(MEDUSA_PUBLISHABLE_KEY);
+  if (token) {
+    service.setAdminToken(token);
+  }
+  return service;
+}
 
 const getStoreConfig = () => ({
   enabled: process.env.STORE_ENABLED === 'true',
@@ -28,26 +41,54 @@ router.get('/config', requireStoreEnabled, (req, res) => {
   });
 });
 
-router.get('/products', requireStoreEnabled, async (req, res) => {
+router.get('/categories', requireStoreEnabled, async (req, res) => {
   try {
-    const { limit = 10, offset = 0, category } = req.query;
-    const params = { limit: parseInt(limit), offset: parseInt(offset) };
-    if (category) params.category_id = category;
-    
-    const result = await medusaService.listProducts(params);
+    const service = getMedusaService();
+    const result = await service.getStoreCategories();
     res.json(result);
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/products', requireStoreEnabled, async (req, res) => {
+  try {
+    const { limit = 50, offset = 0, category } = req.query;
+    
+    const adminToken = process.env.MEDUSA_ADMIN_TOKEN;
+    if (!adminToken) {
+      console.error('Store products error: MEDUSA_ADMIN_TOKEN not set');
+      return res.status(500).json({ error: 'Store not configured - admin token missing' });
+    }
+    
+    const adminService = getMedusaService(adminToken);
+    const result = await adminService.getProducts({ limit: parseInt(limit), offset: parseInt(offset) });
+    
+    let products = result.products || [];
+    if (category) {
+      products = products.filter(p => p.collection_id === category);
+    }
+    
+    res.json({ products, count: products.length });
+  } catch (error) {
+    console.error('Error fetching products:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
 router.get('/products/:id', requireStoreEnabled, async (req, res) => {
   try {
-    const product = await medusaService.getProduct(req.params.id);
+    const adminToken = process.env.MEDUSA_ADMIN_TOKEN;
+    if (!adminToken) {
+      return res.status(500).json({ error: 'Store not configured - admin token missing' });
+    }
+    
+    const adminService = getMedusaService(adminToken);
+    const product = await adminService.getProductById(req.params.id);
     res.json(product);
   } catch (error) {
-    console.error('Error fetching product:', error);
+    console.error('Error fetching product:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -58,7 +99,7 @@ router.get('/cart', requireStoreEnabled, async (req, res) => {
     if (!cartId) {
       return res.json({ cart: null });
     }
-    const cart = await medusaService.getCart(cartId);
+    const cart = await getMedusaService().getCart(cartId);
     res.json({ cart });
   } catch (error) {
     console.error('Error fetching cart:', error);
@@ -68,28 +109,20 @@ router.get('/cart', requireStoreEnabled, async (req, res) => {
 
 router.post('/cart', requireStoreEnabled, async (req, res) => {
   try {
-    const { items = [], region_id, country_code } = req.body;
+    const { items = [], region_id } = req.body;
     
-    const cartData = {
-      region_id: region_id || 'us',
-      country_code: country_code || 'us',
-    };
+    const cartData = region_id ? { region_id } : {};
     
-    const result = await medusaService.createCart(cartData);
+    const result = await getMedusaService().createCart(cartData);
     const cart = result.cart;
     
     req.session.cartId = cart.id;
     
     for (const item of items) {
-      await medusaService.updateCart(cart.id, {
-        line_items: [{
-          variant_id: item.variantId,
-          quantity: item.quantity,
-        }],
-      });
+      await getMedusaService().addLineItem(cart.id, item.variantId, item.quantity);
     }
     
-    const updatedCart = await medusaService.getCart(cart.id);
+    const updatedCart = await getMedusaService().getCart(cart.id);
     res.json({ cart: updatedCart.cart });
   } catch (error) {
     console.error('Error creating cart:', error);
@@ -103,22 +136,14 @@ router.post('/cart/items', requireStoreEnabled, async (req, res) => {
     let cartId = req.session.cartId;
     
     if (!cartId) {
-      const result = await medusaService.createCart({
-        region_id: 'us',
-        country_code: 'us',
-      });
+      const result = await getMedusaService().createCart({});
       cartId = result.cart.id;
       req.session.cartId = cartId;
     }
     
-    await medusaService.updateCart(cartId, {
-      line_items: [{
-        variant_id: variantId,
-        quantity,
-      }],
-    });
+    await getMedusaService().addLineItem(cartId, variantId, quantity);
     
-    const cart = await medusaService.getCart(cartId);
+    const cart = await getMedusaService().getCart(cartId);
     res.json({ cart: cart.cart });
   } catch (error) {
     console.error('Error adding to cart:', error);
@@ -134,7 +159,7 @@ router.put('/cart/items/:lineItemId', requireStoreEnabled, async (req, res) => {
     }
     
     const { quantity } = req.body;
-    const cart = await medusaService.getCart(cartId);
+    const cart = await getMedusaService().getCart(cartId);
     res.json({ cart: cart.cart });
   } catch (error) {
     console.error('Error updating cart:', error);
@@ -149,11 +174,11 @@ router.delete('/cart/items/:lineItemId', requireStoreEnabled, async (req, res) =
       return res.status(400).json({ error: 'No cart found' });
     }
     
-    const cart = await medusaService.getCart(cartId);
+    const cart = await getMedusaService().getCart(cartId);
     const lineItem = cart.cart.line_items.find(item => item.id === req.params.lineItemId);
     
     if (lineItem) {
-      await medusaService.updateCart(cartId, {
+      await getMedusaService().updateCart(cartId, {
         line_items: [{
           id: lineItem.id,
           quantity: 0,
@@ -161,7 +186,7 @@ router.delete('/cart/items/:lineItemId', requireStoreEnabled, async (req, res) =
       });
     }
     
-    const updatedCart = await medusaService.getCart(cartId);
+    const updatedCart = await getMedusaService().getCart(cartId);
     res.json({ cart: updatedCart.cart });
   } catch (error) {
     console.error('Error removing from cart:', error);
@@ -179,12 +204,12 @@ router.post('/cart/discount', requireStoreEnabled, async (req, res) => {
     const { code } = req.body;
     
     try {
-      await medusaService.validateDiscount(code);
+      await getMedusaService().validateDiscount(code);
     } catch (e) {
       return res.status(400).json({ error: 'Invalid discount code' });
     }
     
-    const cart = await medusaService.getCart(cartId);
+    const cart = await getMedusaService().getCart(cartId);
     res.json({ cart: cart.cart, discountApplied: true });
   } catch (error) {
     console.error('Error applying discount:', error);
@@ -199,9 +224,9 @@ router.post('/checkout', requireStoreEnabled, async (req, res) => {
       return res.status(400).json({ error: 'No cart found' });
     }
     
-    await medusaService.createPaymentSession(cartId, 'stripe');
+    await getMedusaService().createPaymentSession(cartId, 'stripe');
     
-    const cart = await medusaService.getCart(cartId);
+    const cart = await getMedusaService().getCart(cartId);
     
     const paymentSession = cart.cart.payment_sessions?.find(s => s.provider_id === 'stripe');
     
@@ -227,7 +252,7 @@ router.post('/checkout/complete', requireStoreEnabled, async (req, res) => {
       return res.status(400).json({ error: 'No cart found' });
     }
     
-    const result = await medusaService.completeCart(cartId);
+    const result = await getMedusaService().completeCart(cartId);
     
     if (result.type === 'order') {
       req.session.cartId = null;
@@ -244,7 +269,7 @@ router.post('/checkout/complete', requireStoreEnabled, async (req, res) => {
 router.get('/orders', requireStoreEnabled, async (req, res) => {
   try {
     const { limit = 10, offset = 0 } = req.query;
-    const orders = await medusaService.listOrders({ limit: parseInt(limit), offset: parseInt(offset) });
+    const orders = await getMedusaService().listOrders({ limit: parseInt(limit), offset: parseInt(offset) });
     res.json(orders);
   } catch (error) {
     console.error('Error fetching orders:', error);
@@ -254,7 +279,7 @@ router.get('/orders', requireStoreEnabled, async (req, res) => {
 
 router.get('/orders/:id', requireStoreEnabled, async (req, res) => {
   try {
-    const order = await medusaService.getOrder(req.params.id);
+    const order = await getMedusaService().getOrder(req.params.id);
     res.json(order);
   } catch (error) {
     console.error('Error fetching order:', error);

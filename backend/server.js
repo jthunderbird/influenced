@@ -13,10 +13,13 @@ const storeRoutes = require('./routes/store');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security middleware - only enable helmet in production if USE_HELMET is set
+// Security middleware - helmet is DISABLED by default
+// It should be enabled only if running directly on the internet without a reverse proxy
+// Most headers are better handled by the reverse proxy anyway
 if (process.env.USE_HELMET === 'true') {
   app.use(helmet({
     contentSecurityPolicy: {
+      useDefaults: false,
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
@@ -25,8 +28,15 @@ if (process.env.USE_HELMET === 'true') {
         connectSrc: ["'self'", "https://www.googleapis.com"],
         frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com"],
         fontSrc: ["'self'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+        objectSrc: ["'none'"],
+        scriptSrcAttr: null, // Don't set script-src-attr
+        upgradeInsecureRequests: null, // Don't upgrade insecure requests
       },
     },
+    hsts: false,
   }));
 }
 
@@ -119,7 +129,7 @@ const sessionConfig = {
   resave: false,
   saveUninitialized: true,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production' && process.env.FORCE_HTTPS_COOKIES === 'true',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
     sameSite: 'lax'
@@ -173,6 +183,29 @@ if (process.env.STORE_ENABLED === 'true') {
 // Initialize YouTube service
 const youtubeService = new YouTubeService(YOUTUBE_API_KEY);
 let channelId = null;
+let medusaAdminToken = null;
+
+// Initialize Medusa admin token for store API
+async function initializeMedusaToken() {
+  try {
+    const medusaEmail = process.env.MEDUSA_ADMIN_EMAIL;
+    const medusaPassword = process.env.MEDUSA_ADMIN_PASSWORD;
+    
+    if (medusaEmail && medusaPassword) {
+      const MedusaService = require('./services/medusa');
+      const service = new MedusaService();
+      service.setBaseUrl(process.env.MEDUSA_URL || 'http://medusa:9000');
+      const result = await service.authenticate(medusaEmail, medusaPassword);
+      if (result.token) {
+        medusaAdminToken = result.token;
+        process.env.MEDUSA_ADMIN_TOKEN = result.token;
+        console.log('Medusa admin token initialized');
+      }
+    }
+  } catch (error) {
+    console.error('Error initializing Medusa token:', error.message);
+  }
+}
 
 // Initialize channel ID
 async function initializeChannel() {
@@ -188,13 +221,31 @@ async function initializeChannel() {
     }
   } catch (error) {
     console.error('Error initializing channel:', error.message);
-    process.exit(1);
+    // Don't exit - server can still run with limited functionality
+    // Channel-dependent routes will return 503 until channel is initialized
   }
 }
 
 // Routes - pass a function to get channelId dynamically
 app.use('/api', async (req, res, next) => {
+  // Allow admin, store, and static routes to bypass channel initialization check
+  if (req.path.startsWith('/admin') || req.path.startsWith('/store') || req.path === '/health') {
+    return next();
+  }
   if (!channelId) {
+    // Return empty channel info instead of error for graceful degradation
+    if (req.path === '/channel') {
+      return res.json({
+        id: null,
+        title: 'Channel',
+        description: 'YouTube API unavailable - Please check your API key and quota',
+        avatar: null,
+        customUrl: null,
+        subscriberCount: null,
+        videoCount: null,
+        socialMedia: getSocialMedia()
+      });
+    }
     return res.status(503).json({ error: 'Service initializing, please wait...' });
   }
   next();
@@ -236,6 +287,7 @@ const fs = require('fs');
 let server;
 
 async function startServer() {
+  await initializeMedusaToken();
   await initializeChannel();
 
   server = app.listen(PORT, '0.0.0.0', () => {

@@ -1,11 +1,15 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useCart } from '../contexts/CartContext';
 
-function Header({ channelInfo, theme, toggleTheme }) {
+function Header({ channelInfo, theme, toggleTheme, storeEnabled }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const { cart } = useCart();
+  
+  const cartItemCount = cart?.items?.length || 0;
 
   const isActive = (path) => {
     return location.pathname === path ? 'active' : '';
@@ -102,6 +106,20 @@ function Header({ channelInfo, theme, toggleTheme }) {
         <Link to="/playlists" className={`nav-link ${isActive('/playlists')}`}>
           Playlists
         </Link>
+        {storeEnabled && (
+          <>
+            <Link to="/store" className={`nav-link nav-link-store ${isActive('/store')}`}>
+              Store
+            </Link>
+            <Link to="/cart" className="header-icon-btn cart-btn" title="Cart">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+              </svg>
+              {cartItemCount > 0 && <span className="cart-count">{cartItemCount}</span>}
+            </Link>
+          </>
+        )}
       </nav>
       <div className="header-actions">
         <button
